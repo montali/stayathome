@@ -1,0 +1,316 @@
+import React from "react";
+import { AwesomeButton } from "react-awesome-button";
+import "react-awesome-button/dist/styles.css";
+
+import "./App.css";
+import axios from "axios";
+import ReactGA from "react-ga";
+import Switch from "react-switch";
+ReactGA.initialize("G-5GRMX9PJMD");
+ReactGA.pageview(window.location.pathname + window.location.search);
+
+class MainTipper extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      tip: {
+        title: "",
+        description: "",
+        button: {
+          link: null,
+          text: null
+        }
+      },
+      nsfw: false,
+      colors: this.getColors(),
+      suggesting: false
+    };
+    this.updateData();
+    this.handleSuggestion = this.handleSuggestion.bind(this);
+    this.handleCloseSuggestions = this.handleCloseSuggestions.bind(this);
+    this.handleNSFW = this.handleNSFW.bind(this);
+  }
+  updateData() {
+    // Fetch tip from API
+    const colors = this.getColors();
+    axios
+      .get("/api/dbtip")
+      .then(res => {
+        const nsfw = res.data.nsfw == null ? false : res.data.nsfw;
+        // Change colors and tip
+        const tip = {
+          title: res.data.title,
+          description: res.data.desc,
+          button: {
+            link: res.data.link,
+            text: res.data.linkDesc
+          },
+          nsfw: nsfw,
+          author: res.data.nickname
+        };
+        if (nsfw === true && this.state.nsfw === false) {
+          this.updateData();
+          return;
+        }
+        this.setState({ tip: tip, colors: colors });
+        ReactGA.event({
+          category: "Tip",
+          action: "Requested another tip"
+        });
+      })
+      .catch(error => {
+        console.log(error);
+      });
+  }
+  handleNSFW() {
+    this.setState({ nsfw: !this.state.nsfw });
+  }
+  handleSuggestion(data) {
+    const suggestion = {
+      title: data.title,
+      desc: data.desc,
+      link: data.link,
+      linkDesc: data.linkDesc,
+      nickname: data.nickname
+    };
+    axios
+      .post("/api/suggest", suggestion)
+      .then(res => {
+        //Thank the user!
+        this.setState({ suggesting: false });
+        ReactGA.event({
+          category: "Suggestions",
+          action: "Suggested a tip"
+        });
+      })
+      .catch(error => {
+        console.log(error);
+      });
+  }
+
+  getColors() {
+    const ColorScheme = require("color-scheme");
+    let scm = new ColorScheme();
+    let hue = Math.random() * 365;
+    scm
+      .from_hue(hue)
+      .scheme("contrast")
+      .variation("pastel")
+      .web_safe(true);
+
+    var colors = scm.colors();
+    return {
+      background: "#" + colors[1],
+      buttonPrimary: "#" + colors[6],
+      buttonDark: "#" + colors[7]
+    };
+  }
+
+  handleCloseSuggestions() {
+    this.setState({ suggesting: false });
+  }
+
+  render() {
+    var buttonStyle = {
+      "--button-secondary-color": this.state.colors.buttonPrimary,
+      "--button-secondary-color-dark": this.state.colors.buttonDark
+    };
+    if (!this.state.suggesting) {
+      let credits = "";
+      let button = "";
+      if (this.state.tip.author)
+        credits = (
+          <h5 style={{ fontWeight: "300" }}>
+            Grazie a {this.state.tip.author} per il consiglio.
+          </h5>
+        );
+      if (this.state.tip.button.link && this.state.tip.button.text)
+        button = (
+          <AwesomeButton
+            type="secondary"
+            className="button"
+            style={buttonStyle}
+            size="large"
+            onPress={() => {
+              window.open(this.state.tip.button.link, "_blank");
+            }}
+          >
+            {this.state.tip.button.text}
+          </AwesomeButton>
+        );
+      return (
+        <div className="App">
+          <header
+            className="App-header"
+            style={{ backgroundColor: this.state.colors.background }}
+          >
+            <h1 id="tipTitle">{this.state.tip.title}</h1>
+            <div className="descriptionDiv">
+              <h4 style={{ fontWeight: "300" }}>
+                {this.state.tip.description}
+              </h4>
+              {button}
+              {credits}
+            </div>
+            <div className="copyrightDiv">
+              <div className="buttonDiv">
+                <AwesomeButton
+                  type="primary"
+                  className="button"
+                  size="medium"
+                  onPress={() => {
+                    this.updateData();
+                  }}
+                >
+                  Another one!
+                </AwesomeButton>
+                <AwesomeButton
+                  type="primary"
+                  className="button"
+                  size="medium"
+                  onPress={() => {
+                    this.setState({ suggesting: true });
+                  }}
+                >
+                  Suggest!
+                </AwesomeButton>
+                <div className="divNSFW">
+                  <Switch
+                    onChange={this.handleNSFW}
+                    checked={this.state.nsfw}
+                    className="react-switch"
+                  />
+                  <h5>NSFW</h5>
+                </div>
+              </div>
+              🏠Proudly made by <a href="https://monta.li/">Simone Montali</a>{" "}
+              during the COVID19 quarantine. 🏠
+              <br />
+              <a href="https://github.com/simmontali/acasaafarecosa">
+                This project is open source!
+              </a>{" "}
+              <nbsp /> <nbsp /> <nbsp />
+              <a href="https://instagram.com/sommosimmy">
+                Follow me on Instagram.
+              </a>
+              <nbsp /> <nbsp /> <nbsp />
+              <a
+                href="https://www.privacypolicygenerator.info/live.php?token=IBTncHODVmlgcrYHFj3lCSEbZGBmcpVI"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Privacy Policy
+              </a>
+            </div>
+          </header>
+        </div>
+      );
+    } else
+      return (
+        <div className="App">
+          <header
+            className="App-header"
+            style={{ backgroundColor: this.state.colors.background }}
+          >
+            <Suggest
+              handleSuggestion={this.handleSuggestion}
+              handleClose={this.handleCloseSuggestions}
+            />
+          </header>
+        </div>
+      );
+  }
+}
+
+class Suggest extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { sendText: "Send" };
+    this.handleInputChange = this.handleInputChange.bind(this);
+  }
+
+  handleInputChange(event) {
+    const target = event.target;
+    const value = target.value;
+    const name = target.name;
+
+    this.setState({
+      [name]: value
+    });
+  }
+
+  render() {
+    return (
+      <div className="formPaper">
+        <form
+          id="contact"
+          onSubmit={event => {
+            event.preventDefault();
+          }}
+        >
+          <h3>Submit a new tip</h3>
+          <input
+            placeholder="Title"
+            required
+            onChange={this.handleInputChange}
+            type="text"
+            name="title"
+          />
+          <input
+            placeholder="Description"
+            required
+            onChange={this.handleInputChange}
+            type="text"
+            name="desc"
+          />
+          <input
+            placeholder="Link (optional)"
+            onChange={this.handleInputChange}
+            type="url"
+            name="link"
+          />
+          <input
+            placeholder="Link title(button)"
+            onChange={this.handleInputChange}
+            type="text"
+            name="linkDesc"
+          />
+          <input
+            placeholder="Your nickname (optional)"
+            onChange={this.handleInputChange}
+            type="text"
+            name="nickname"
+          />
+          <AwesomeButton
+            type="primary"
+            className="button"
+            size="medium"
+            onPress={() => {
+              this.setState({ sendText: "Thank you ❤️" }, () => {
+                setTimeout(() => {
+                  this.props.handleSuggestion(this.state);
+                }, 600);
+              });
+            }}
+          >
+            {this.state.sendText}
+          </AwesomeButton>
+        </form>
+        <AwesomeButton
+          type="secondary"
+          className="button"
+          size="medium"
+          onPress={this.props.handleClose}
+        >
+          Cancel
+        </AwesomeButton>
+      </div>
+    );
+  }
+}
+
+function App() {
+  return <MainTipper />;
+}
+
+export default App;
