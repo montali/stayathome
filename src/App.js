@@ -121,7 +121,7 @@ class MainTipper extends React.Component {
       if (this.state.tip.author)
         credits = (
           <h5 style={{ fontWeight: "300" }}>
-            Grazie a {this.state.tip.author} per il consiglio.
+            Thanks to {this.state.tip.author} for the tip.
           </h5>
         );
       if (this.state.tip.button.link && this.state.tip.button.text)
